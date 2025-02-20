@@ -1,4 +1,5 @@
 # Python Code Assistant API
+![image](https://github.com/user-attachments/assets/ca86969c-a342-4687-a2ea-144218beba9b)
 
 This is a Flask-based API that integrates with the **Ollama AI Model** (`deepseek-coder:6.7b`) to assist developers with Python code analysis, suggestions, debugging, and answering coding-related questions.
 
