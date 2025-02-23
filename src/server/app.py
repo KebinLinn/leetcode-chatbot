@@ -3,9 +3,9 @@ from flask_cors import CORS
 import requests
 import logging
 import re
-import black  
+import black
 import json
-import openai
+from openai import OpenAI
 from typing import Optional
 
 app = Flask(__name__)
@@ -21,23 +21,18 @@ logging.basicConfig(level=logging.INFO)
 conversation_context = {}
 
 
-def get_client(model: str):
-    """Return the appropriate client handler based on the model"""
-    if model == "openai-4o":
-        return "openai"
-    return "ollama"
+def get_client(provider: str, api_key: Optional[str] = None):
+    if provider == 'openai':
+        return OpenAI(api_key=api_key)
+    elif provider == 'groq':
+        return OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    return None
 
 def setup_openai_client(api_key: str) -> None:
     """Configure OpenAI client"""
     openai.api_key = api_key
 
-def send_openai_completion(
-    prompt: str,
-    api_key: str,
-    model: str = "gpt-4",  
-    max_tokens: int = 1000,
-    temperature: float = 0.7
-) -> Optional[str]:
+def send_completion(client: OpenAI, model: str, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> Optional[str]:
     """
     Send a chat completion request to OpenAI's API
     
@@ -52,23 +47,12 @@ def send_openai_completion(
         The generated response text or None if failed
     """
     try:
-        # Set up the client
-        setup_openai_client(api_key)
-        
-        # Get the correct OpenAI model identifier
-        actual_model = get_openai_model(model)
-        
-        # Create the chat completion
-        response = openai.chat.completions.create(
-            model=actual_model,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }],
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             max_tokens=max_tokens
         )
-        
         return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"Error sending chat completion: {str(e)}")
@@ -80,6 +64,46 @@ def get_openai_model(model: str):
         "openai-4o": "gpt-4" 
     }
     return model_mapping.get(model, model)
+
+def get_response(prompt: str, provider: str, model: str, api_key: Optional[str] = None) -> str:
+    """
+    Sends a prompt to the specified provider and returns the response.
+
+    Args:
+        prompt (str): The prompt to send to the provider.
+        provider (str): The provider ('openai', 'groq', or 'ollama').
+        model (str): The model to use for the provider.
+        api_key (Optional[str]): The API key for providers requiring authentication.
+
+    Returns:
+        str: The response from the provider.
+
+    Raises:
+        ValueError: If the provider is invalid.
+        Exception: If the request to the provider fails.
+    """
+    
+    # OLLAMA_API_URL = "http://localhost:11434/api/generate"
+    print(f"Getting response for provider: {provider}, model: {model}")
+    if provider in ['openai', 'groq']:
+        client = get_client(provider, api_key)
+        if client is None:
+            raise ValueError("Invalid provider")
+        response = send_completion(client, model, prompt)
+        if response is None:
+            raise Exception(f"Failed to get response from {provider}")
+        return response
+    elif provider == 'ollama':
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False
+        }
+        response = requests.post(OLLAMA_API_URL, json=payload)
+        response_data = response.json()
+        return response_data.get("response", "").strip()
+    else:
+        raise ValueError("Invalid provider")
 
 
 def format_code_with_black(code: str) -> str:
@@ -103,96 +127,66 @@ def format_code_blocks_with_black(response_text: str) -> str:
     def format_match(match):
         code_block = match.group(2).strip()
         formatted_code = format_code_with_black(code_block)
-        return f"```python\n{formatted_code}\n```"
+        return f"```\n{formatted_code}\n```"
 
-    formatted_response = re.sub(code_block_regex, lambda m: format_match(m), response_text, flags=re.IGNORECASE)
-    return formatted_response
+    return re.sub(code_block_regex, format_match, response_text, flags=re.IGNORECASE)
 
-def format_response(response_text: str, maxWidth: int) -> str:
+def format_response(response_text):
     """
-    Format the raw response text into justified text lines and preserved code blocks.
+    Format the raw response text into a structured list of bullet points or preserve code blocks.
     """
-    # Split into code blocks and text parts
-    code_block_regex = r'(```python\s*[\s\S]*?\s*```)'
-    parts = re.split(code_block_regex, response_text)
-    formatted_text = []
-    
-    for i, part in enumerate(parts):
-        if i % 2 == 1:
-            # Code block, preserve and format with Black later
-            formatted_text.append(part.strip())
+    # Detect and preserve code blocks
+    lines = response_text.split("\n")
+    formatted_lines = []
+    inside_code_block = False
+
+    for line in lines:
+        stripped_line = line.strip()
+        if stripped_line.startswith("```"):
+            # Toggle the code block flag
+            inside_code_block = not inside_code_block
+            formatted_lines.append(stripped_line)  # Preserve ``` markers
+        elif inside_code_block:
+            # Preserve indentation inside code blocks
+            formatted_lines.append(line)
         else:
-            # Text part, process for justification
-            words = part.split()
-            if not words:
-                continue
-            
-            lines = []
-            current_line = []
-            current_length = 0
-            
-            for word in words:
-                if current_line:
-                    required = current_length + len(word) + 1  # 1 for space
-                    if required <= maxWidth:
-                        current_line.append(word)
-                        current_length += len(word) + 1
-                    else:
-                        lines.append(current_line)
-                        current_line = [word]
-                        current_length = len(word)
-                else:
-                    current_line.append(word)
-                    current_length = len(word)
-            
-            if current_line:
-                lines.append(current_line)
-            
-            justified_lines = []
-            for j, line_words in enumerate(lines):
-                if j == len(lines) - 1:
-                    # Last line: left-justified
-                    line = ' '.join(line_words)
-                    line += ' ' * (maxWidth - len(line))
-                else:
-                    num_words = len(line_words)
-                    sum_len = sum(len(word) for word in line_words)
-                    total_spaces = maxWidth - sum_len
-                    if num_words == 1:
-                        line = line_words[0] + ' ' * total_spaces
-                    else:
-                        gaps = num_words - 1
-                        space_per_gap = total_spaces // gaps
-                        remainder = total_spaces % gaps
-                        line = ''
-                        for k in range(gaps):
-                            spaces = space_per_gap + (1 if k < remainder else 0)
-                            line += line_words[k] + ' ' * spaces
-                        line += line_words[-1]
-                justified_lines.append(f"- {line}")
-            
-            formatted_text.append('\n'.join(justified_lines))
-    
-    # Combine parts and format code blocks
-    combined = '\n'.join(formatted_text)
-    return format_code_blocks_with_black(combined)
+            # Format non-code lines as bullet points if they are not empty
+            if stripped_line:
+                formatted_lines.append(f"- {stripped_line}")
+            else:
+                formatted_lines.append("")  # Preserve blank lines
+
+    return "\n".join(formatted_lines)
 
 @app.route('/get_suggestions', methods=['POST'])
 def get_suggestions():
-    """Analyze the provided Python code and suggest improvements."""
+    """
+    Analyzes the provided code and suggests improvements using the specified provider.
+
+    Request JSON:
+        - code (str): The code to analyze.
+        - user_id (str, optional): The user ID (defaults to 'default_user').
+        - file_name (str, optional): The file name (defaults to 'Untitled').
+        - provider (str, optional): The provider ('openai', 'groq', or 'ollama'; defaults to 'ollama').
+        - model (str, optional): The model to use (defaults to 'deepseek-coder:6.7b').
+        - api_key (str, optional): The API key for providers requiring authentication.
+
+    Returns:
+        JSON response with the suggestion or an error message.
+    """
     data = request.json
     code = data.get('code', '').strip()
     user_id = data.get('user_id', 'default_user')
     file_name = data.get('file_name', 'Untitled')
+    provider = data.get('provider', 'ollama')
     model = data.get('model', 'deepseek-coder:6.7b')
-    client_type = get_client(model)
     api_key = data.get('api_key')
-    maxWidth = data.get('maxWidth', 80)
-    
+
     if not code:
         return jsonify({"error": "No code provided", "status": "failure"}), 400
 
     try:
+        # Initialize or update conversation context
         if user_id not in conversation_context:
             conversation_context[user_id] = {
                 "code": code,
@@ -203,48 +197,21 @@ def get_suggestions():
             conversation_context[user_id]["code"] = code
             conversation_context[user_id]["file_name"] = file_name
 
+        # Construct prompt for code analysis
         prompt = (
-            "You are a world-class Python programmer. Your goal is to assist and guide a junior Python programmer in writing code for projects or coding tasks, explain programming concepts, and write code snippets/full code when needed.\n\n"
-            "You will assist a junior programmer with their coding needs and questions, providing answers to coding-related questions, debugging code, or providing steps to solve coding tasks as well as code when asked.\n\n"
-            "Please use the following rules when giving a response:\n"
-            "1) Keep the response concise and clear, meaning around 200 words max (does not include words for code snippets or examples) or 5-6 bullet points at most.\n"
-            "Do not include comments in the code snippets. Only provide the code without any explanations or comments.\n"
-            "3) Be engaging and encourage human interaction, asking follow-up questions or asking for clarification when necessary.\n"
-            "4) If the user provides incorrect or incomplete code, help them debug it or suggest steps to solve their issue.\n"
-            "5) Always prioritize clarity, accuracy, and user understanding.\n"
-            "6) Maintain a friendly and approachable tone to make the user feel comfortable asking questions.\n"
-            "7) Encourage the user to follow best practices, such as writing modular code, using meaningful variable names, and adding comments for clarity.\n"
-            "8) If the user asks a question unrelated to Python programming, politely guide them back to coding topics or let them know you specialize in Python.\n"
-            "9) Only provide code examples if the user explicitly requests them in their query. When code is not requested, focus on explaining concepts, steps, or solutions without including snippets."
             f"Analyze the following Python code from file '{file_name}':\n\n"
             f"```python\n{code}\n```\n\n"
+            "Provide suggestions for improvement."
         )
 
-        if client_type == "openai":
-            if not api_key:
-                return jsonify({"error": "OpenAI API key required"}), 401
-            
-            suggestion = send_openai_completion(
-                prompt=prompt,
-                api_key=api_key,
-                model=model
-            )
-            
-            if suggestion is None:
-                return jsonify({"error": "Failed to get response from OpenAI"}), 500
-                
-        else:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False
-            }
-            response = requests.post(OLLAMA_API_URL, json=payload)
-            response_data = response.json()
-            suggestion = response_data.get("response", "").strip()
+        # Get response from the provider
+        suggestion = get_response(prompt, provider, model, api_key)
 
-        formatted_suggestion = format_response(suggestion, maxWidth)
+        # Format the response (ensure format_response and format_code_blocks_with_black are defined)
+        formatted_suggestion = format_response(suggestion)
+        formatted_suggestion = format_code_blocks_with_black(formatted_suggestion)
 
+        # Store the response in conversation context
         conversation_context[user_id]["conversation"].append({
             "role": "assistant",
             "message": formatted_suggestion
@@ -255,34 +222,48 @@ def get_suggestions():
             "status": "success"
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        error_source = "OpenAI" if client_type == "openai" else "Ollama"
-        return jsonify({
-            "error": f"Failed to communicate with {error_source}",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": f"Failed to get response: {str(e)}"}), 500
 
 @app.route('/ask_question', methods=['POST'])
 def ask_question():
-    """Answer a user's question based on the provided code and conversation history."""
+    """
+    Answers user questions, including code-related queries if applicable, using the specified provider.
+
+    Request JSON:
+        - question (str): The question to answer.
+        - user_id (str, optional): The user ID (defaults to 'default_user').
+        - file_name (str, optional): The file name (defaults to 'Untitled').
+        - code (str, optional): The code related to the question.
+        - provider (str, optional): The provider ('openai', 'groq', or 'ollama'; defaults to 'ollama').
+        - model (str, optional): The model to use (defaults to 'deepseek-coder:6.7b').
+        - api_key (str, optional): The API key for providers requiring authentication.
+
+    Returns:
+        JSON response with the answer or an error message.
+    """
     data = request.json
+    print(f"Received data: {data}")
     question = data.get('question', '').strip()
     user_id = data.get('user_id', 'default_user')
     file_name = data.get('file_name', 'Untitled')
     code = data.get('code', '').strip()
+    provider = data.get('provider', 'ollama')
     model = data.get('model', 'deepseek-coder:6.7b')
-    client_type = get_client(model)
     api_key = data.get('api_key')
-    maxWidth = data.get('maxWidth', 80)
-    
+
     if not question:
         return jsonify({"error": "No question provided", "status": "failure"}), 400
 
     try:
+        # Determine if the question is code-related
         is_code_related = any(
             phrase in question.lower() for phrase in ["code", "function", "variable", "implementation"]
         )
-        
+
+        # Construct prompt based on whether the question is code-related and code is provided
         if is_code_related and code:
             prompt = (
                 f"File: {file_name}\nCode:\n```python\n{code}\n```\n\n"
@@ -299,33 +280,16 @@ def ask_question():
                 "Keep the response under 200 words."
             )
 
-        if client_type == "openai":
-            if not api_key:
-                return jsonify({"error": "OpenAI API key required"}), 401
-            
-            answer = send_openai_completion(
-                prompt=prompt,
-                api_key=api_key,
-                model=model
-            )
-            
-            if answer is None:
-                return jsonify({"error": "Failed to get response from OpenAI"}), 500
-        else:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False
-            }
-            response = requests.post(OLLAMA_API_URL, json=payload)
-            response_data = response.json()
-            answer = response_data.get("response", "").strip()
+        # Get response from the provider
+        answer = get_response(prompt, provider, model, api_key)
 
-        formatted_answer = format_response(answer, maxWidth)
+        # Format the response
+        formatted_answer = format_response(answer)
+        formatted_answer = format_code_blocks_with_black(formatted_answer)
 
+        # Initialize or update conversation context
         if user_id not in conversation_context:
             conversation_context[user_id] = {"conversation": []}
-            
         conversation_context[user_id]["conversation"].extend([
             {"role": "user", "message": question},
             {"role": "assistant", "message": formatted_answer}
@@ -336,30 +300,42 @@ def ask_question():
             "status": "success"
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        error_source = "OpenAI" if client_type == "openai" else "Ollama"
-        return jsonify({
-            "error": f"Failed to communicate with {error_source}",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": f"Failed to get response: {str(e)}"}), 500
 
 @app.route('/general_help', methods=['POST'])
 def general_help():
-    """Handle general coding questions with direct answers"""
+    """
+    Provides general coding help, including code if provided, using the specified provider.
+
+    Request JSON:
+        - question (str): The question to answer.
+        - user_id (str, optional): The user ID (defaults to 'default_user').
+        - file_name (str, optional): The file name (defaults to 'Untitled').
+        - code (str, optional): The code related to the question.
+        - provider (str, optional): The provider ('openai', 'groq', or 'ollama'; defaults to 'ollama').
+        - model (str, optional): The model to use (defaults to 'deepseek-coder:6.7b').
+        - api_key (str, optional): The API key for providers requiring authentication.
+
+    Returns:
+        JSON response with the answer or an error message.
+    """
     data = request.json
     question = data.get('question', '').strip()
     user_id = data.get('user_id', 'default_user')
     file_name = data.get('file_name', 'Untitled')
     code = data.get('code', '').strip()
+    provider = data.get('provider', 'ollama')
     model = data.get('model', 'deepseek-coder:6.7b')
-    client_type = get_client(model)
     api_key = data.get('api_key')
-    maxWidth = data.get('maxWidth', 80)
-    
+
     if not question:
         return jsonify({"error": "No question provided", "status": "failure"}), 400
 
     try:
+        # Construct prompt, including code if provided
         if code:
             prompt = (
                 f"File: {file_name}\nCode:\n```python\n{code}\n```\n\n"
@@ -374,33 +350,16 @@ def general_help():
                 "Keep response under 200 words unless absolutely necessary."
             )
 
-        if client_type == "openai":
-            if not api_key:
-                return jsonify({"error": "OpenAI API key required"}), 401
-            
-            answer = send_openai_completion(
-                prompt=prompt,
-                api_key=api_key,
-                model=model
-            )
-            
-            if answer is None:
-                return jsonify({"error": "Failed to get response from OpenAI"}), 500
-        else:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False
-            }
-            response = requests.post(OLLAMA_API_URL, json=payload)
-            response_data = response.json()
-            answer = response_data.get("response", "").strip()
+        # Get response from the provider
+        answer = get_response(prompt, provider, model, api_key)
 
-        formatted_answer = format_response(answer, maxWidth)
+        # Format the response
+        formatted_answer = format_response(answer)
+        formatted_answer = format_code_blocks_with_black(formatted_answer)
 
+        # Initialize or update conversation context
         if user_id not in conversation_context:
             conversation_context[user_id] = {"conversation": []}
-            
         conversation_context[user_id]["conversation"].extend([
             {"role": "user", "message": question},
             {"role": "assistant", "message": formatted_answer}
@@ -411,12 +370,10 @@ def general_help():
             "status": "success"
         })
 
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        error_source = "OpenAI" if client_type == "openai" else "Ollama"
-        return jsonify({
-            "error": f"Failed to communicate with {error_source}",
-            "details": str(e)
-        }), 500
+        return jsonify({"error": f"Failed to get response: {str(e)}"}), 500
 
 @app.route('/conversation_history', methods=['GET'])
 def get_conversation_history():
