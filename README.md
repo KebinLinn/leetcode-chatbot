@@ -1,147 +1,130 @@
-# Python Code Assistant API
-![image](https://github.com/user-attachments/assets/ca86969c-a342-4687-a2ea-144218beba9b)
+# Coding Chatbot - VS Code Extension
+![VSCode Extension Demo](https://github.com/KebinLinn/leetcode-chatbot/raw/main/demo.gif)
 
-This is a Flask-based API that integrates with the **Ollama AI Model** (`deepseek-coder:6.7b`) to assist developers with Python code analysis, suggestions, debugging, and answering coding-related questions.
+A Visual Studio Code extension that provides an AI-powered coding assistant to help with LeetCode problems and general programming questions. The extension integrates with multiple AI models including Deepseek Coder, OpenAI GPT-4, and custom models through Groq or Ollama.
 
 ## Features
 
-- **Get Code Suggestions**: Analyze provided Python code and receive structured suggestions for improvement.
-- **Ask Questions**: Ask Python-related questions and receive AI-generated responses.
-- **Format Code with Black**: Automatically formats Python code blocks for readability.
-- **Conversation Context**: Maintains conversation history for each user.
-- **Retrieve & Clear History**: Fetch or reset conversation history.
+- **Multiple AI Model Support**: 
+  - Deepseek Coder (6.7b)
+  - Deepseek R1
+  - OpenAI GPT-4
+  - Custom LLM via Groq
+  - Custom Ollama models
 
----
+- **Dual Mode Operation**:
+  - LeetCode Help: Specialized assistance for LeetCode problems
+  - General Coding: Help with any programming questions
+
+- **Smart Context Awareness**:
+  - Automatically captures current file content
+  - Provides context-aware suggestions
+  - Maintains conversation history
+
+- **User Interface**:
+  - Integrated chat panel
+  - Code formatting support
+  - Easy model switching
+  - New chat creation
+  - Conversation history management
 
 ## Installation
 
-1. **Clone the Repository**  
-   ```sh
-   git clone https://github.com/your-repo/python-code-assistant.git
-   cd python-code-assistant
+1. **Install the Extension**:
+   - Install from VS Code Marketplace [link](https://marketplace.visualstudio.com/items?itemName=kebinLin.leetcode-chatbot)
+   - Or download the VSIX file and install manually
+
+2. **Install Required Python Packages**:
+   ```bash
+   pip install Flask==3.1.0 Flask-Cors==5.0.0 requests==2.32.3 black==25.1.0 openai==1.63.0 typing-extensions==4.12.2
    ```
 
-2. **Install Dependencies**  
-   ```sh
-   pip install -r requirements.txt
-   ```
+3. **Configure AI Models** (Optional):
+   - For OpenAI GPT-4: Set your API key using the "Update OpenAI API Key" command
+   - For Groq: Set your API key and model using the respective commands
+   - For Ollama: Install Ollama locally and set up your preferred model
 
-3. **Start the Flask Server**  
-   ```sh
-   python app.py
-   ```
+4. **Extension Activation**:
+   - After installation, you may need to reload VS Code for the extension to fully activate
 
----
+## Usage
 
-## API Endpoints
+### Starting the Extension
 
-### 1⃣ Get Code Suggestions  
-**Endpoint**: `POST /get_suggestions`  
-**Description**: Analyzes Python code and provides suggestions.  
-**Request Body (JSON)**:
-```json
-{
-  "code": "def add(a, b): return a+b",
-  "user_id": "user123",
-  "file_name": "script.py"
-}
-```
-**Response Example**:
-```json
-{
-  "suggestion": "- Use type hints: def add(a: int, b: int) -> int\n...",
-  "status": "success"
-}
-```
+1. Open VS Code
+2. Click the LeetCode Chatbot icon in the sidebar
+3. The chat panel will open, ready to assist
 
----
+### Available Commands
 
-### 2⃣ Ask a Coding Question  
-**Endpoint**: `POST /ask_question`  
-**Description**: Answers Python-related questions.  
-**Request Body (JSON)**:
-```json
-{
-  "question": "How do I optimize this function?",
-  "user_id": "user123",
-  "file_name": "script.py",
-  "code": "def add(a, b): return a+b"
-}
-```
-**Response Example**:
-```json
-{
-  "answer": "- Consider using numpy for performance...",
-  "status": "success"
-}
-```
+Access these commands through the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
----
+- `LeetCode Chatbot: Analyze Code`
+- `LeetCode Chatbot: Update OpenAI API Key`
+- `LeetCode Chatbot: Update Groq API Key`
+- `LeetCode Chatbot: Set Custom Model`
+- `LeetCode Chatbot: Set Ollama Model`
 
-### 3⃣ Retrieve Conversation History  
-**Endpoint**: `GET /conversation_history`  
-**Description**: Fetches the conversation history of a user.  
-**Query Parameters**:
-```
-user_id (optional) - Default: "default_user"
-```
-**Response Example**:
-```json
-{
-  "history": [
-    {"role": "user", "message": "How to optimize this?"},
-    {"role": "assistant", "message": "- Use a list comprehension..."}
-  ]
-}
-```
+### Features Guide
 
----
+1. **Model Selection**:
+   - Choose your preferred AI model from the dropdown
+   - Models include Deepseek Coder, OpenAI GPT-4, and custom options
 
-### 4⃣ Clear Conversation History  
-**Endpoint**: `POST /clear_conversation`  
-**Description**: Clears the conversation history of a user.  
-**Request Body (JSON)**:
-```json
-{
-  "user_id": "user123"
-}
-```
-**Response Example**:
-```json
-{
-  "status": "success",
-  "message": "Conversation history cleared"
-}
-```
+2. **Mode Toggle**:
+   - Switch between "LeetCode Help" and "General Coding" modes
+   - LeetCode mode provides problem-specific assistance
+   - General mode offers broader programming help
 
----
+3. **Chat Interface**:
+   - Type questions in the input box
+   - View conversation history
+   - Start new conversations with the "New Chat" button
+   - Copy code snippets with one click
 
 ## Configuration
 
-- **Ollama API URL**: The service assumes Ollama is running locally at `http://localhost:11434/api/generate`. Update `OLLAMA_API_URL` if needed.
-- **Port**: The Flask server runs on `0.0.0.0:5000` (can be modified in `app.py`).
-- **Logging**: Debug logs are enabled for troubleshooting.
+### API Keys
 
----
+1. **OpenAI GPT-4**:
+   ```
+   Command: LeetCode Chatbot: Update OpenAI API Key
+   ```
 
-## Dependencies
+2. **Groq Custom Model**:
+   ```
+   Commands:
+   - LeetCode Chatbot: Update Groq API Key
+   - LeetCode Chatbot: Set Custom Model
+   ```
 
-- **Flask** - API framework
-- **Flask-CORS** - Handles cross-origin requests
-- **Requests** - API calls to Ollama
-- **Black** - Python code formatting
-- **Logging** - For debugging
+3. **Ollama Custom Model**:
+   ```
+   Command: LeetCode Chatbot: Set Ollama Model
+   ```
 
-Install with:
-```sh
-pip install flask flask-cors requests black
-```
+## Requirements
 
----
+- Visual Studio Code 1.84.0 or higher
+- Python 3.8 or higher
+- The Python packages listed in the installation section
+
+## Known Issues
+
+Please report any issues on the [GitHub repository](https://github.com/KebinLinn/leetcode-chatbot/issues).
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is open-source under the **MIT License**.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
+**Note**: This extension is not affiliated with LeetCode. It's an independent tool designed to assist with programming tasks.
