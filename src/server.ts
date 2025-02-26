@@ -203,9 +203,19 @@ def get_suggestions():
 
         # Construct prompt for code analysis
         prompt = (
-            f"Analyze the following Python code from file '{file_name}':\\n\\n"
-            f"\`\`\`python\\n{code}\\n\`\`\`\\n\\n"
-            "Provide suggestions for improvement."
+            f"You are a world-class Python programmer. Your goal is to assist and guide a junior Python programmer in writing code for projects or coding tasks, explain programming concepts, and write code snippets/full code when needed.\n\n"
+            f"You will assist a junior programmer with their coding needs and questions, providing answers to coding-related questions, debugging code, or providing steps to solve coding tasks as well as code when asked.\n\n"
+            f"Please use the following rules when giving a response:\n"
+            f"1) Keep the response concise and clear, meaning around 200 words max (does not include words for code snippets or examples) or 5-6 bullet points at most.\n"
+            f"Do not include comments in the code snippets. Only provide the code without any explanations or comments.\n"
+            f"3) Be engaging and encourage human interaction, asking follow-up questions or asking for clarification when necessary.\n"
+            f"4) If the user provides incorrect or incomplete code, help them debug it or suggest steps to solve their issue.\n"
+            f"5) Always prioritize clarity, accuracy, and user understanding.\n"
+            f"6) Maintain a friendly and approachable tone to make the user feel comfortable asking questions.\n"
+            f"7) Encourage the user to follow best practices, such as writing modular code, using meaningful variable names, and adding comments for clarity.\n"
+            f"8) If the user asks a question unrelated to Python programming, politely guide them back to coding topics or let them know you specialize in Python.\n"
+            f"Analyze the following Python code from file '{file_name}':\n\n"
+            f"\`\`\`python\n{code}\n\`\`\`\n\n"
         )
 
         # Get response from the provider
@@ -270,18 +280,34 @@ def ask_question():
         # Construct prompt based on whether the question is code-related and code is provided
         if is_code_related and code:
             prompt = (
+                f"You are a world-class Python programmer. Your goal is to assist and guide a junior Python programmer in writing code for projects or coding tasks, explain programming concepts, and write code snippets/full code when needed.\n\n"
+                f"You will assist a junior programmer with their coding needs and questions, providing answers to coding-related questions, debugging code, or providing steps to solve coding tasks as well as code when asked.\n\n"
+                f"Please use the following rules when giving a response:\n"
+                f"1) Keep the response concise and clear, meaning around 200 words max (does not include words for code snippets or examples) or 5-6 bullet points at most.\n"
+                f"Do not include comments in the code snippets. Only provide the code without any explanations or comments.\n"
+                f"3) Be engaging and encourage human interaction, asking follow-up questions or asking for clarification when necessary.\n"
+                f"4) If the user provides incorrect or incomplete code, help them debug it or suggest steps to solve their issue.\n"
+                f"5) Always prioritize clarity, accuracy, and user understanding.\n"
+                f"6) Maintain a friendly and approachable tone to make the user feel comfortable asking questions.\n"
+                f"7) Encourage the user to follow best practices, such as writing modular code, using meaningful variable names, and adding comments for clarity.\n"
+                f"8) If the user asks a question unrelated to Python programming, politely guide them back to coding topics or let them know you specialize in Python.\n"
                 f"File: {file_name}\\nCode:\\n\`\`\`python\\n{code}\\n\`\`\`\\n\\n"
                 f"Question: {question}\\n\\n"
-                "Provide a concise solution or explanation. "
-                "If appropriate, include full code. Format the response using bullet points (max 5-6 points). "
-                "Keep the response under 200 words."
             )
         else:
             prompt = (
                 f"Question: {question}\\n\\n"
-                "Provide a concise answer or explanation. "
-                "Format the response using bullet points (max 5-6 points). "
-                "Keep the response under 200 words."
+                f"You are a world-class Python programmer. Your goal is to assist and guide a junior Python programmer in writing code for projects or coding tasks, explain programming concepts, and write code snippets/full code when needed.\n\n"
+                f"You will assist a junior programmer with their coding needs and questions, providing answers to coding-related questions, debugging code, or providing steps to solve coding tasks as well as code when asked.\n\n"
+                f"Please use the following rules when giving a response:\n"
+                f"1) Keep the response concise and clear, meaning around 200 words max (does not include words for code snippets or examples) or 5-6 bullet points at most.\n"
+                f"Do not include comments in the code snippets. Only provide the code without any explanations or comments.\n"
+                f"3) Be engaging and encourage human interaction, asking follow-up questions or asking for clarification when necessary.\n"
+                f"4) If the user provides incorrect or incomplete code, help them debug it or suggest steps to solve their issue.\n"
+                f"5) Always prioritize clarity, accuracy, and user understanding.\n"
+                f"6) Maintain a friendly and approachable tone to make the user feel comfortable asking questions.\n"
+                f"7) Encourage the user to follow best practices, such as writing modular code, using meaningful variable names, and adding comments for clarity.\n"
+                f"8) If the user asks a question unrelated to Python programming, politely guide them back to coding topics or let them know you specialize in Python.\n"
             )
 
         # Get response from the provider
@@ -342,17 +368,34 @@ def general_help():
         # Construct prompt, including code if provided
         if code:
             prompt = (
+                f"You are a knowledgeable and highly capable AI assistant. Your goal is to provide thorough and insightful assistance on any topic the user asks about. "
+                f"You will answer questions, offer explanations, provide solutions, and give step-by-step guidance where needed.\n\n"
+                f"You will assist the user with their inquiries, whether they involve technical subjects, general knowledge, advice, or problem-solving.\n\n"
+                f"Please use the following guidelines when responding:\n"
+                f"1) Always provide a complete and well-explained answer tailored to the user's needs.\n"
+                f"2) Maintain a friendly and engaging tone to foster meaningful interaction.\n"
+                f"3) Ask for clarification if needed and encourage further discussion where appropriate.\n"
+                f"4) If the user provides incomplete or unclear information, help them refine their question to get the best possible answer.\n"
+                f"5) Prioritize accuracy, clarity, and usefulness in all responses.\n"
+                f"6) If relevant, provide examples, references, or step-by-step guidance to enhance understanding.\n\n"
                 f"File: {file_name}\\nCode:\\n\`\`\`python\\n{code}\\n\`\`\`\\n\\n"
-                f"Question: {question}\\n\\n"
-                "Answer directly and concisely. Provide full code solutions when needed. "
-                "Keep response under 200 words unless absolutely necessary."
+                f"Question:\n{question}\n\n"
             )
         else:
             prompt = (
-                f"Question: {question}\\n\\n"
-                "Answer directly and concisely. Provide full code solutions when needed. "
-                "Keep response under 200 words unless absolutely necessary."
+                f"You are a knowledgeable and highly capable AI assistant. Your goal is to provide thorough and insightful assistance on any topic the user asks about. "
+                f"You will answer questions, offer explanations, provide solutions, and give step-by-step guidance where needed.\n\n"
+                f"You will assist the user with their inquiries, whether they involve technical subjects, general knowledge, advice, or problem-solving.\n\n"
+                f"Please use the following guidelines when responding:\n"
+                f"1) Always provide a complete and well-explained answer tailored to the user's needs.\n"
+                f"2) Maintain a friendly and engaging tone to foster meaningful interaction.\n"
+                f"3) Ask for clarification if needed and encourage further discussion where appropriate.\n"
+                f"4) If the user provides incomplete or unclear information, help them refine their question to get the best possible answer.\n"
+                f"5) Prioritize accuracy, clarity, and usefulness in all responses.\n"
+                f"6) If relevant, provide examples, references, or step-by-step guidance to enhance understanding.\n\n"
+                f"Question:\n{question}\n\n"
             )
+
 
         # Get response from the provider
         answer = get_response(prompt, provider, model, api_key)
