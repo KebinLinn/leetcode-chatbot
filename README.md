@@ -32,7 +32,7 @@ A Visual Studio Code extension that provides an AI-powered coding assistant to h
 
 1. **Install the Extension**:
    - Install from VS Code Marketplace [link](https://marketplace.visualstudio.com/items?itemName=kebinLin.leetcode-chatbot)
-   - Or download the VSIX file and install manually
+   - Or clone the Github repository and run it locally.
 
 2. **Install Required Python Packages**:
    ```bash
